@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat:*)",
+      "Bash(next --version)",
+      "Bash(node -p:*)",
+      "Bash(test:*)",
+      "Bash(npx prisma:*)",
+      "Bash(tree -L 3 -I 'node_modules|.next':*)",
+      "Bash(xcopy \"C:\\wamp64\\www\\financeira\\emprestimodiario.com.br\\img\\logo.png\" \"C:\\Projetos\\emprestimodiario\\public\"\" /Y && xcopy \"C:wamp64wwwfinanceiraemprestimodiario.com.brimglogo_black.png\" \"C:Projetosemprestimodiariopublic\"\" /Y)",
+      "Bash(xcopy:*)",
+      "Bash(copy \"C:\\wamp64\\www\\financeira\\emprestimodiario.com.br\\img\\logo.png\" \"C:\\Projetos\\emprestimodiario\\public\\logo.png\")",
+      "Bash(copy:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tailwindcss:*)",
+      "Bash(npm run dev:*)",
+      "Bash(taskkill /F /PID 26356 2)",
+      "Bash(nul)",
+      "Bash(taskkill:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(tasklist:*)",
+      "WebSearch",
+      "Bash(del \"C:\\Projetos\\emprestimodiario\\middleware.ts\")",
+      "Bash(npx ts-node:*)",
+      "Bash(npx tsx:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git rm:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

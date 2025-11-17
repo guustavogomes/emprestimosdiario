@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { AuthenticateUser } from "@/core/application/usecases/AuthenticateUser";
+import { prisma } from "@/lib/prisma";
 import { signToken } from "@/lib/jwt";
+import { logLogin } from "@/lib/auditLog";
+import bcrypt from "bcrypt";
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,9 +17,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Autentica o usuário
-    const authenticateUser = new AuthenticateUser();
-    const user = await authenticateUser.execute({ cpf, senha });
+    // Busca o usuário com perfil e permissões
+    const user = await prisma.usuario.findUnique({
+      where: { cpf },
+      include: {
+        profile: {
+          include: {
+            permissions: {
+              include: {
+                permission: true,
+              },
+            },
+          },
+        },
+      },
+    });
 
     if (!user) {
       return NextResponse.json(
@@ -26,12 +40,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Verifica se o usuário está ativo
+    if (!user.ativo) {
+      return NextResponse.json(
+        { error: "Usuário inativo" },
+        { status: 401 }
+      );
+    }
+
+    // Verifica a senha
+    const senhaValida = await bcrypt.compare(senha, user.senhaHash);
+
+    if (!senhaValida) {
+      return NextResponse.json(
+        { error: "CPF ou senha incorretos" },
+        { status: 401 }
+      );
+    }
+
+    // Monta array de permissões
+    const permissions = user.profile
+      ? user.profile.permissions.map((pp) => ({
+          resource: pp.permission.resource,
+          action: pp.permission.action,
+        }))
+      : [];
+
     // Gera o token JWT
     const token = signToken({
       userId: user.id,
       cpf: user.cpf,
-      nivel: user.nivel,
+      nivel: user.tipo, // Agora usa 'tipo' ao invés de 'nivel'
     });
+
+    // Registra auditoria
+    await logLogin(user.id, { cpf: user.cpf }, request);
 
     // Retorna o token e os dados do usuário
     return NextResponse.json({
@@ -41,7 +84,8 @@ export async function POST(request: NextRequest) {
         nome: user.nome,
         email: user.email,
         cpf: user.cpf,
-        nivel: user.nivel,
+        tipo: user.tipo,
+        permissions,
       },
     });
   } catch (error) {

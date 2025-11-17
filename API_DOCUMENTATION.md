@@ -171,6 +171,146 @@ Authorization: Bearer {token}
 
 **NOTA:** Este é um soft delete. O cliente é marcado como `ativo: false`.
 
+## Arquivos (Cloudflare R2)
+
+**TODAS as rotas de arquivos requerem autenticação via JWT.**
+
+### Upload de Arquivo
+```http
+POST /api/upload
+Authorization: Bearer {token}
+Content-Type: multipart/form-data
+
+FormData:
+- file: arquivo (obrigatório)
+- folder: pasta de destino (opcional)
+- clienteId: ID do cliente (opcional, cria pasta clientes/{id})
+```
+
+**Validações:**
+- Tamanho máximo: 10MB
+- Tipos permitidos: JPEG, PNG, WebP, PDF
+
+**Resposta (200):**
+```json
+{
+  "success": true,
+  "key": "clientes/uuid/1234567890-documento.pdf",
+  "fileName": "1234567890-documento.pdf",
+  "folder": "clientes/uuid",
+  "size": 1024567,
+  "contentType": "application/pdf",
+  "uploadedAt": "2025-01-16T10:30:00.000Z"
+}
+```
+
+**Erros:**
+- `400` - Arquivo não fornecido, muito grande ou tipo não permitido
+- `401` - Token inválido
+- `500` - Erro no upload
+
+### Listar Arquivos
+```http
+GET /api/files
+Authorization: Bearer {token}
+
+# Com filtro de pasta
+GET /api/files?folder=clientes/uuid
+```
+
+**Resposta (200):**
+```json
+{
+  "success": true,
+  "files": [
+    {
+      "key": "clientes/uuid/1234567890-documento.pdf",
+      "size": 1024567,
+      "lastModified": "2025-01-16T10:30:00.000Z"
+    }
+  ],
+  "total": 1
+}
+```
+
+### Obter URL de Download
+```http
+GET /api/files/{encodedKey}
+Authorization: Bearer {token}
+```
+
+**NOTA:** A key deve ser URL encoded. Ex: `clientes/uuid/doc.pdf` → `clientes%2Fuuid%2Fdoc.pdf`
+
+**Resposta (200):**
+```json
+{
+  "success": true,
+  "url": "https://signed-url.r2.cloudflarestorage.com/...",
+  "key": "clientes/uuid/1234567890-documento.pdf",
+  "expiresIn": 3600
+}
+```
+
+**NOTA:** A URL de download expira em 1 hora (3600 segundos).
+
+### Deletar Arquivo
+```http
+DELETE /api/files/{encodedKey}
+Authorization: Bearer {token}
+```
+
+**Resposta (200):**
+```json
+{
+  "success": true,
+  "message": "Arquivo deletado com sucesso",
+  "key": "clientes/uuid/1234567890-documento.pdf"
+}
+```
+
+### Exemplo React Native - Upload de Foto
+
+```typescript
+// Fazer upload de foto da câmera/galeria
+async uploadClientePhoto(clienteId: string, imageUri: string) {
+  const token = await AsyncStorage.getItem('token');
+
+  // Criar FormData
+  const formData = new FormData();
+  formData.append('file', {
+    uri: imageUri,
+    type: 'image/jpeg',
+    name: 'foto.jpg',
+  } as any);
+  formData.append('clienteId', clienteId);
+
+  const response = await fetch(`${API_URL}/api/upload`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  return response.json();
+}
+
+// Obter URL para visualizar foto
+async getClientePhotoUrl(key: string) {
+  const token = await AsyncStorage.getItem('token');
+  const encodedKey = encodeURIComponent(key);
+
+  const response = await fetch(`${API_URL}/api/files/${encodedKey}`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  const { url } = await response.json();
+  return url;
+}
+```
+
 ## Autenticação JWT
 
 ### Como usar:

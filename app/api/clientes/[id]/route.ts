@@ -1,18 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/authMiddleware";
+import { requirePermission } from "@/lib/permissionMiddleware";
+import { logRead, logUpdate, logDelete } from "@/lib/auditLog";
 import { prisma } from "@/lib/prisma";
 
-// GET /api/clientes/[id] - Buscar cliente por ID
+/**
+ * GET /api/clientes/[id] - Buscar cliente por ID
+ * Requer permissão: clientes:read
+ */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAuth(request);
+  // Verifica permissão
+  const auth = await requirePermission(request, "clientes", "read");
   if (auth instanceof NextResponse) return auth;
+
+  const { id } = await params;
 
   try {
     const cliente = await prisma.cliente.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!cliente) {
@@ -21,6 +28,15 @@ export async function GET(
         { status: 404 }
       );
     }
+
+    // Registra auditoria
+    await logRead(
+      auth.user.userId,
+      "clientes",
+      cliente.id,
+      { nome: cliente.nome },
+      request
+    );
 
     return NextResponse.json(cliente);
   } catch (error) {
@@ -32,20 +48,26 @@ export async function GET(
   }
 }
 
-// PUT /api/clientes/[id] - Atualizar cliente
+/**
+ * PUT /api/clientes/[id] - Atualizar cliente
+ * Requer permissão: clientes:update
+ */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAuth(request);
+  // Verifica permissão
+  const auth = await requirePermission(request, "clientes", "update");
   if (auth instanceof NextResponse) return auth;
+
+  const { id } = await params;
 
   try {
     const body = await request.json();
 
-    // Verifica se o cliente existe
+    // Busca estado anterior para auditoria
     const existingCliente = await prisma.cliente.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!existingCliente) {
@@ -71,7 +93,7 @@ export async function PUT(
 
     // Atualiza o cliente
     const cliente = await prisma.cliente.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         nome: body.nome,
         telefone: body.telefone,
@@ -88,8 +110,22 @@ export async function PUT(
         nomeEmergencia2: body.nomeEmergencia2,
         telefoneEmergencia2: body.telefoneEmergencia2,
         etiqueta: body.etiqueta,
+        updatedBy: auth.user.userId, // Rastreabilidade
       },
     });
+
+    // Registra auditoria com mudanças
+    await logUpdate(
+      auth.user.userId,
+      "clientes",
+      cliente.id,
+      {
+        before: existingCliente,
+        after: cliente,
+        changes: Object.keys(body),
+      },
+      request
+    );
 
     return NextResponse.json(cliente);
   } catch (error) {
@@ -101,18 +137,24 @@ export async function PUT(
   }
 }
 
-// DELETE /api/clientes/[id] - Deletar cliente (soft delete)
+/**
+ * DELETE /api/clientes/[id] - Deletar cliente (soft delete)
+ * Requer permissão: clientes:delete
+ */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAuth(request);
+  // Verifica permissão
+  const auth = await requirePermission(request, "clientes", "delete");
   if (auth instanceof NextResponse) return auth;
+
+  const { id } = await params;
 
   try {
     // Verifica se o cliente existe
     const existingCliente = await prisma.cliente.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!existingCliente) {
@@ -124,9 +166,22 @@ export async function DELETE(
 
     // Soft delete (marca como inativo ao invés de deletar)
     await prisma.cliente.update({
-      where: { id: params.id },
-      data: { ativo: false },
+      where: { id },
+      data: {
+        ativo: false,
+        deletedAt: new Date(),
+        deletedBy: auth.user.userId,
+      },
     });
+
+    // Registra auditoria
+    await logDelete(
+      auth.user.userId,
+      "clientes",
+      id,
+      { nome: existingCliente.nome, cpf: existingCliente.cpf },
+      request
+    );
 
     return NextResponse.json({ message: "Cliente deletado com sucesso" });
   } catch (error) {

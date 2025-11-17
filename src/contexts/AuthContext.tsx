@@ -8,7 +8,8 @@ interface User {
   nome: string;
   email: string | null;
   cpf: string;
-  nivel: string;
+  tipo: "ADMIN" | "MANAGER" | "ANALYST" | "COLLECTOR" | "CLIENT";
+  permissions?: Array<{ resource: string; action: string }>;
 }
 
 interface AuthContextData {
@@ -18,6 +19,8 @@ interface AuthContextData {
   login: (cpf: string, senha: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
+  hasPermission: (resource: string, action: string) => boolean;
+  isAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
@@ -103,6 +106,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push("/login");
   };
 
+  // Verifica se o usuário tem uma permissão específica
+  const hasPermission = (resource: string, action: string): boolean => {
+    if (!user) return false;
+
+    // ADMIN tem todas as permissões
+    if (user.tipo === "ADMIN") return true;
+
+    // Verifica nas permissões do usuário
+    if (user.permissions) {
+      return user.permissions.some(
+        (p) => p.resource === resource && p.action === action
+      );
+    }
+
+    return false;
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -112,6 +132,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login,
         logout,
         isAuthenticated: !!user,
+        hasPermission,
+        isAdmin: user?.tipo === "ADMIN",
       }}
     >
       {children}

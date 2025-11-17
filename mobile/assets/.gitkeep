@@ -1,0 +1,10 @@
+# Pasta para assets do app
+
+## TODO:
+1. Copiar logo do web para cá:
+   - `../../public/logo.png` → `logo.png`
+   - `../../public/logo-black.png` → `logo-black.png`
+
+2. Criar ícone do app (icon.png) - 1024x1024px
+3. Criar splash screen (splash.png) - 1242x2436px
+4. Criar adaptive icon (adaptive-icon.png) - 1024x1024px

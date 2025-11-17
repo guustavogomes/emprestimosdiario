@@ -27,7 +27,22 @@
       "Bash(npm uninstall:*)",
       "Bash(git init:*)",
       "Bash(git add:*)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(npx dotenv:*)",
+      "Bash(migration_temp.sql)",
+      "Bash(cmd /c \"npx dotenv -e .env.local -- npx prisma migrate dev --name add_rbac_and_audit_system < nul 2>&1\")",
+      "Bash(cmd /c \"migrate.bat\")",
+      "Bash(app/dashboard/page.tsx)",
+      "Bash(echo:*)",
+      "Bash(temp-create-dirs.js)",
+      "Bash(node temp-create-dirs.js)",
+      "Bash(del:*)",
+      "Bash(node -e:*)",
+      "Bash(node scripts/fix-perfis-permissions.js:*)",
+      "Bash(move:*)",
+      "Bash(move App.test.tsx App.tsx)"
     ],
     "deny": [],
     "ask": []

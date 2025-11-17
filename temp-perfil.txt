@@ -1,0 +1,241 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRouter, useParams } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ArrowLeft, Save } from "lucide-react";
+
+interface Permission {
+  id: string;
+  resource: string;
+  action: string;
+}
+
+export default function EditPerfilPage() {
+  const { token } = useAuth();
+  const router = useRouter();
+  const params = useParams();
+  const isNew = params.id === "novo";
+
+  const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
+  const [cpf, setCpf] = useState("");
+  const [senha, setSenha] = useState("");
+  const [tipo, setTipo] = useState("CLIENT");
+  const [profileId, setProfileId] = useState("");
+  const [permissions, setPermissions] = useState<Permission[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    loadProfiles();
+    if (!isNew) {
+      loadUsuario();
+    }
+  }, []);
+
+  const loadProfiles = async () => {
+    try {
+      const response = await fetch("/api/permissions", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setPermissions(data);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar perfis:", error);
+    }
+  };
+
+  const loadUsuario = async () => {
+    try {
+      const response = await fetch(`/api/perfis/${params.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setNome(data.nome);
+        setEmail(data.email || "");
+        setCpf(data.cpf);
+        setTipo(data.tipo);
+        setProfileId(data.profileId || "");
+      }
+    } catch (error) {
+      console.error("Erro:", error);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!nome || !cpf || !tipo) {
+      alert("Preencha os campos obrigatórios");
+      return;
+    }
+
+    if (isNew && !senha) {
+      alert("Senha é obrigatória para novo perfil");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const body: any = {
+        nome,
+        email: email || null,
+        tipo,
+        profileId: profileId || null,
+      };
+
+      if (isNew) {
+        body.cpf = cpf;
+        body.senha = senha;
+      } else if (senha) {
+        body.senha = senha;
+      }
+
+      const url = isNew ? "/api/perfis" : `/api/perfis/${params.id}`;
+      const method = isNew ? "POST" : "PUT";
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (response.ok) {
+        alert(isNew ? "Perfil criado!" : "Perfil atualizado!");
+        router.push("/dashboard/perfis");
+      } else {
+        const error = await response.json();
+        alert(error.error);
+      }
+    } catch (error) {
+      alert("Erro ao salvar");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" onClick={() => router.back()}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <div>
+          <h1 className="text-3xl font-bold">
+            {isNew ? "Novo Perfil" : "Editar Perfil"}
+          </h1>
+          <p className="text-gray-500 mt-1">
+            {isNew ? "Cadastre um novo perfil" : "Atualize os dados do perfil"}
+          </p>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Informações do Perfil</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="nome">Nome *</Label>
+              <Input
+                id="nome"
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                placeholder="Nome completo"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="email@exemplo.com"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="cpf">CPF *</Label>
+              <Input
+                id="cpf"
+                value={cpf}
+                onChange={(e) => setCpf(e.target.value)}
+                placeholder="000.000.000-00"
+                disabled={!isNew}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="senha">
+                Senha {isNew ? "*" : "(deixe em branco para manter)"}
+              </Label>
+              <Input
+                id="senha"
+                type="password"
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
+                placeholder={isNew ? "Digite a senha" : "Nova senha"}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="tipo">Tipo de Perfil *</Label>
+              <select
+                id="tipo"
+                value={tipo}
+                onChange={(e) => setTipo(e.target.value)}
+                className="flex h-11 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm"
+              >
+                <option value="ADMIN">Administrador</option>
+                <option value="MANAGER">Gerente</option>
+                <option value="ANALYST">Analista</option>
+                <option value="COLLECTOR">Cobrança</option>
+                <option value="CLIENT">Cliente</option>
+              </select>
+            </div>
+
+            <div>
+              <Label htmlFor="profileId">Perfil de Acesso</Label>
+              <select
+                id="profileId"
+                value={profileId}
+                onChange={(e) => setProfileId(e.target.value)}
+                className="flex h-11 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm"
+              >
+                <option value="">Nenhum perfil</option>
+                {profiles.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <Button onClick={handleSave} disabled={loading}>
+              <Save className="h-4 w-4 mr-2" />
+              {loading ? "Salvando..." : "Salvar"}
+            </Button>
+            <Button variant="outline" onClick={() => router.back()}>
+              Cancelar
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

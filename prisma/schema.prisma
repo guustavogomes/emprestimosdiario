@@ -7,16 +7,146 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ========================================
+// SISTEMA DE USUÁRIOS E PERMISSÕES (RBAC)
+// ========================================
+
+enum UserType {
+  ADMIN           // Acesso total ao sistema (web + app)
+  MANAGER         // Gerente
+  ANALYST         // Analista de crédito
+  COLLECTOR       // Cobrança
+  CLIENT          // Cliente do app mobile
+}
+
 model Usuario {
   id        String   @id @default(uuid())
   nome      String
   email     String?  @unique
   cpf       String   @unique
   senhaHash String
-  nivel     String
+  tipo      UserType @default(CLIENT)
+
+  // Relacionamento com perfil
+  profileId String?
+  profile   Profile? @relation(fields: [profileId], references: [id])
+
+  // Relacionamento com cliente (se for tipo CLIENT)
+  clienteId String?  @unique
+  cliente   Cliente? @relation(fields: [clienteId], references: [id])
+
+  // Soft delete e auditoria
+  ativo     Boolean  @default(true)
+  deletedAt DateTime?
+  deletedBy String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Relacionamentos de auditoria
+  createdLogs AuditLog[] @relation("UserCreatedLogs")
+
+  @@map("usuarios")
 }
+
+model Profile {
+  id          String   @id @default(uuid())
+  nome        String   @unique // Ex: "Administrador", "Gerente", "Analista", "Cobrança"
+  descricao   String?
+
+  // Relacionamentos
+  usuarios    Usuario[]
+  permissions ProfilePermission[]
+
+  // Soft delete e auditoria
+  ativo       Boolean  @default(true)
+  deletedAt   DateTime?
+  deletedBy   String?
+  createdBy   String?
+  updatedBy   String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("profiles")
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  resource    String   // Ex: "clientes", "emprestimos", "usuarios", "relatorios"
+  action      String   // Ex: "read", "create", "update", "delete"
+  descricao   String?
+
+  // Relacionamentos
+  profiles    ProfilePermission[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([resource, action])
+  @@map("permissions")
+}
+
+// Tabela de relacionamento many-to-many entre Profile e Permission
+model ProfilePermission {
+  id           String     @id @default(uuid())
+
+  profileId    String
+  profile      Profile    @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime   @default(now())
+
+  @@unique([profileId, permissionId])
+  @@map("profile_permissions")
+}
+
+// ========================================
+// AUDITORIA / RASTREABILIDADE
+// ========================================
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  READ
+  LOGIN
+  LOGOUT
+  UPLOAD
+  DOWNLOAD
+}
+
+model AuditLog {
+  id         String      @id @default(uuid())
+
+  // Quem fez a ação
+  userId     String
+  user       Usuario     @relation("UserCreatedLogs", fields: [userId], references: [id])
+
+  // O que foi feito
+  action     AuditAction
+  resource   String      // Ex: "clientes", "emprestimos"
+  resourceId String?     // ID do recurso afetado
+
+  // Detalhes
+  descricao  String?
+  metadata   Json?       // Dados extras (antes/depois, IP, etc)
+  ipAddress  String?
+  userAgent  String?
+
+  createdAt  DateTime    @default(now())
+
+  @@index([userId])
+  @@index([resource, resourceId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ========================================
+// CLIENTES
+// ========================================
 
 model Cliente {
   id                    String    @id @default(uuid())
@@ -35,9 +165,78 @@ model Cliente {
   nomeEmergencia2       String?
   telefoneEmergencia2   String?
   etiqueta              String?   // orange, green, yellow, red
+
+  // Relacionamento com usuário (se cliente tiver acesso ao app)
+  usuario               Usuario?
+
+  // Relacionamento com empréstimos
+  emprestimos           Emprestimo[]
+
+  // Soft delete e auditoria
   ativo                 Boolean   @default(true)
+  deletedAt             DateTime?
+  deletedBy             String?
+  createdBy             String?
+  updatedBy             String?
+
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
   @@map("clientes")
+}
+
+// ========================================
+// EMPRÉSTIMOS (estrutura inicial)
+// ========================================
+
+enum EmprestimoStatus {
+  PENDENTE           // Aguardando análise
+  EM_ANALISE         // Sendo analisado
+  APROVADO           // Aprovado
+  REPROVADO          // Reprovado
+  ATIVO              // Em andamento (dinheiro liberado)
+  QUITADO            // Pago completamente
+  ATRASADO           // Com atraso
+  CANCELADO          // Cancelado
+}
+
+model Emprestimo {
+  id                String           @id @default(uuid())
+
+  // Cliente
+  clienteId         String
+  cliente           Cliente          @relation(fields: [clienteId], references: [id])
+
+  // Valores
+  valorSolicitado   Decimal          @db.Decimal(10, 2)
+  valorAprovado     Decimal?         @db.Decimal(10, 2)
+  valorTotal        Decimal?         @db.Decimal(10, 2) // Com juros
+  taxaJuros         Decimal          @db.Decimal(5, 2)
+  numeroParcelas    Int
+  valorParcela      Decimal?         @db.Decimal(10, 2)
+
+  // Datas
+  dataLiberacao     DateTime?
+  dataPrimeiroVencimento DateTime?
+
+  // Status
+  status            EmprestimoStatus @default(PENDENTE)
+  motivoReprovacao  String?
+
+  // Documentos (chaves R2)
+  documentos        Json?            // Array de keys do R2
+
+  // Soft delete e auditoria
+  ativo             Boolean          @default(true)
+  deletedAt         DateTime?
+  deletedBy         String?
+  createdBy         String?
+  updatedBy         String?
+
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([clienteId])
+  @@index([status])
+  @@map("emprestimos")
 }

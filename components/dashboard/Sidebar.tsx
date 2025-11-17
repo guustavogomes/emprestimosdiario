@@ -39,6 +39,21 @@ const menuItems = [
     icon: Users,
   },
   {
+    title: "Usuários",
+    href: "/dashboard/usuarios",
+    icon: Users,
+  },
+  {
+    title: "Perfis",
+    href: "/dashboard/perfis",
+    icon: Settings,
+  },
+  {
+    title: "Auditoria",
+    href: "/dashboard/auditoria",
+    icon: FileText,
+  },
+  {
     title: "Relatórios",
     href: "/dashboard/relatorios",
     icon: FileText,

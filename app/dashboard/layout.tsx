@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { PageLoading } from "@/components/ui/loading";
+import { Toaster } from "sonner";
 
 export default function DashboardLayout({
   children,
@@ -31,6 +32,16 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <Toaster
+        position="top-right"
+        richColors
+        closeButton
+        toastOptions={{
+          style: {
+            fontFamily: 'Inter, system-ui, sans-serif',
+          },
+        }}
+      />
       <Sidebar />
 
       <main className="lg:pl-64">

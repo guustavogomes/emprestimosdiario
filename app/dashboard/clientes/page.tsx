@@ -1,68 +1,107 @@
 "use client";
 
-import * as React from "react";
-import { Plus, Search, Edit2, Trash2, Tag } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { ClienteFormModal } from "@/components/clientes/ClienteFormModal";
+import { Input } from "@/components/ui/input";
+import { Plus, Search, Edit, Trash2, Tag, UserCircle } from "lucide-react";
+import { toast } from "sonner";
 
-// Dados mockados temporários
-const mockClientes = [
-  {
-    id: "1",
-    nome: "João Silva",
-    telefone: "(11) 98765-4321",
-    cpf: "123.456.789-00",
-    cidade: "São Paulo",
-    etiqueta: "green",
-    ativo: true,
-  },
-  {
-    id: "2",
-    nome: "Maria Santos",
-    telefone: "(11) 97654-3210",
-    cpf: "987.654.321-00",
-    cidade: "São Paulo",
-    etiqueta: "orange",
-    ativo: true,
-  },
-  {
-    id: "3",
-    nome: "Carlos Lima",
-    telefone: "(11) 96543-2109",
-    cpf: "456.789.123-00",
-    cidade: "Guarulhos",
-    etiqueta: "red",
-    ativo: true,
-  },
-];
+interface Cliente {
+  id: string;
+  nome: string;
+  telefone: string | null;
+  cpf: string;
+  cidade: string | null;
+  etiqueta: string | null;
+  ativo: boolean;
+}
 
-const etiquetaColors = {
+const etiquetaColors: Record<string, { bg: string; text: string; border: string }> = {
   orange: { bg: "bg-orange-100", text: "text-orange-700", border: "border-orange-200" },
   green: { bg: "bg-green-100", text: "text-green-700", border: "border-green-200" },
   yellow: { bg: "bg-yellow-100", text: "text-yellow-700", border: "border-yellow-200" },
   red: { bg: "bg-red-100", text: "text-red-700", border: "border-red-200" },
+  blue: { bg: "bg-blue-100", text: "text-blue-700", border: "border-blue-200" },
 };
 
 export default function ClientesPage() {
-  const [searchTerm, setSearchTerm] = React.useState("");
-  const [selectedEtiqueta, setSelectedEtiqueta] = React.useState("");
-  const [isModalOpen, setIsModalOpen] = React.useState(false);
-  const [selectedCliente, setSelectedCliente] = React.useState(null);
+  const { token, hasPermission } = useAuth();
+  const router = useRouter();
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedEtiqueta, setSelectedEtiqueta] = useState("");
 
-  const filteredClientes = mockClientes.filter((cliente) => {
+  const canCreate = hasPermission("clientes", "create");
+  const canUpdate = hasPermission("clientes", "update");
+  const canDelete = hasPermission("clientes", "delete");
+
+  useEffect(() => {
+    if (!token) return;
+    loadClientes();
+  }, [token]);
+
+  const loadClientes = async () => {
+    try {
+      const response = await fetch("/api/clientes", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setClientes(data);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar clientes:", error);
+      toast.error("Erro ao carregar clientes");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: string, nome: string) => {
+    if (!confirm(`Deseja realmente deletar o cliente "${nome}"?`)) return;
+
+    const deletePromise = fetch(`/api/clientes/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    }).then(async (response) => {
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Erro ao deletar cliente");
+      }
+      return response.json();
+    });
+
+    toast.promise(deletePromise, {
+      loading: "Deletando cliente...",
+      success: () => {
+        loadClientes();
+        return `Cliente "${nome}" deletado com sucesso!`;
+      },
+      error: (err) => err.message || "Erro ao deletar cliente",
+    });
+  };
+
+  const filteredClientes = clientes.filter((cliente) => {
     const matchesSearch =
       cliente.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
       cliente.cpf.includes(searchTerm) ||
-      cliente.telefone.includes(searchTerm);
+      (cliente.telefone && cliente.telefone.includes(searchTerm));
 
     const matchesEtiqueta = selectedEtiqueta
       ? cliente.etiqueta === selectedEtiqueta
       : true;
 
-    return matchesSearch && matchesEtiqueta;
+    return matchesSearch && matchesEtiqueta && cliente.ativo;
   });
+
+  if (loading) {
+    return <div className="flex justify-center py-12">Carregando...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -70,20 +109,18 @@ export default function ClientesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Clientes</h1>
-          <p className="text-gray-600 mt-1">
-            Gerencie seus clientes cadastrados
-          </p>
+          <p className="text-gray-500 mt-1">Gerencie seus clientes cadastrados</p>
         </div>
-        <Button
-          onClick={() => {
-            setSelectedCliente(null);
-            setIsModalOpen(true);
-          }}
-          className="bg-blue-600 hover:bg-blue-700"
-        >
-          <Plus className="h-5 w-5 mr-2" />
-          Novo Cliente
-        </Button>
+
+        {canCreate && (
+          <Button
+            variant="success"
+            onClick={() => router.push("/dashboard/clientes/novo")}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Cliente
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -102,13 +139,14 @@ export default function ClientesPage() {
             <select
               value={selectedEtiqueta}
               onChange={(e) => setSelectedEtiqueta(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="">Todas as Etiquetas</option>
               <option value="orange">Laranja</option>
               <option value="green">Verde</option>
               <option value="yellow">Amarelo</option>
               <option value="red">Vermelho</option>
+              <option value="blue">Azul</option>
             </select>
           </div>
         </CardContent>
@@ -120,28 +158,32 @@ export default function ClientesPage() {
           <CardContent className="p-4">
             <div className="text-sm text-gray-600">Total de Clientes</div>
             <div className="text-2xl font-bold text-gray-900">
-              {mockClientes.length}
+              {clientes.filter((c) => c.ativo).length}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="text-sm text-gray-600">Clientes Ativos</div>
+            <div className="text-sm text-gray-600">Resultados da Busca</div>
+            <div className="text-2xl font-bold text-blue-600">
+              {filteredClientes.length}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-sm text-gray-600">Com Etiqueta</div>
             <div className="text-2xl font-bold text-green-600">
-              {mockClientes.filter((c) => c.ativo).length}
+              {clientes.filter((c) => c.ativo && c.etiqueta).length}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="text-sm text-gray-600">Cadastros Este Mês</div>
-            <div className="text-2xl font-bold text-blue-600">12</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-sm text-gray-600">Com Empréstimos</div>
-            <div className="text-2xl font-bold text-orange-600">8</div>
+            <div className="text-sm text-gray-600">Inativos</div>
+            <div className="text-2xl font-bold text-red-600">
+              {clientes.filter((c) => !c.ativo).length}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -153,44 +195,43 @@ export default function ClientesPage() {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Cliente
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     CPF
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Telefone
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Cidade
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Etiqueta
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                     Ações
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredClientes.map((cliente) => {
-                  const etiqueta = etiquetaColors[cliente.etiqueta as keyof typeof etiquetaColors];
+                  const etiqueta = cliente.etiqueta
+                    ? etiquetaColors[cliente.etiqueta]
+                    : null;
+
                   return (
                     <tr key={cliente.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
+                        <div className="flex items-center gap-3">
                           <div className="h-10 w-10 flex-shrink-0">
                             <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                              <span className="text-sm font-medium text-blue-600">
-                                {cliente.nome.charAt(0)}
-                              </span>
+                              <UserCircle className="h-6 w-6 text-blue-600" />
                             </div>
                           </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {cliente.nome}
-                            </div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {cliente.nome}
                           </div>
                         </div>
                       </td>
@@ -198,38 +239,48 @@ export default function ClientesPage() {
                         {cliente.cpf}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {cliente.telefone}
+                        {cliente.telefone || "-"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {cliente.cidade}
+                        {cliente.cidade || "-"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${etiqueta.bg} ${etiqueta.text} ${etiqueta.border}`}
-                        >
-                          <Tag className="h-3 w-3" />
-                          {cliente.etiqueta}
-                        </span>
+                        {etiqueta ? (
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${etiqueta.bg} ${etiqueta.text} ${etiqueta.border}`}
+                          >
+                            <Tag className="h-3 w-3" />
+                            {cliente.etiqueta}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 text-sm">-</span>
+                        )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedCliente(cliente as any);
-                            setIsModalOpen(true);
-                          }}
-                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50 ml-2"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className="flex gap-2 justify-end">
+                          {canUpdate && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                router.push(`/dashboard/clientes/${cliente.id}`)
+                              }
+                              className="hover:bg-blue-50"
+                            >
+                              <Edit className="h-4 w-4 text-blue-600" />
+                            </Button>
+                          )}
+                          {canDelete && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDelete(cliente.id, cliente.nome)}
+                              className="hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -240,11 +291,13 @@ export default function ClientesPage() {
         </CardContent>
       </Card>
 
-      <ClienteFormModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        cliente={selectedCliente}
-      />
+      {filteredClientes.length === 0 && (
+        <div className="text-center py-12 text-gray-500">
+          {searchTerm || selectedEtiqueta
+            ? "Nenhum cliente encontrado com os filtros aplicados"
+            : "Nenhum cliente cadastrado"}
+        </div>
+      )}
     </div>
   );
 }

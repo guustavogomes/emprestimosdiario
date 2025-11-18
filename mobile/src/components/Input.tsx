@@ -12,6 +12,7 @@ import { colors, typography, spacing } from '../theme';
 interface InputProps extends TextInputProps {
   label?: string;
   error?: string;
+  success?: boolean;
   mask?: (value: string) => string;
   containerStyle?: ViewStyle;
 }
@@ -19,6 +20,7 @@ interface InputProps extends TextInputProps {
 export function Input({
   label,
   error,
+  success,
   mask,
   value,
   onChangeText,
@@ -42,25 +44,34 @@ export function Input({
           {!editable && (
             <Text style={styles.lockIcon}>🔒</Text>
           )}
+          {success && editable && (
+            <Text style={styles.successIcon}>✓</Text>
+          )}
         </View>
       )}
 
-      <TextInput
-        style={[
-          styles.input,
-          isFocused && styles.inputFocused,
-          error && styles.inputError,
-          !editable && styles.inputDisabled,
-          style,
-        ]}
-        value={value}
-        onChangeText={handleChangeText}
-        onFocus={() => setIsFocused(true)}
-        onBlur={() => setIsFocused(false)}
-        placeholderTextColor={colors.text.tertiary}
-        editable={editable}
-        {...rest}
-      />
+      <View style={styles.inputWrapper}>
+        <TextInput
+          style={[
+            styles.input,
+            isFocused && styles.inputFocused,
+            error && styles.inputError,
+            success && !error && styles.inputSuccess,
+            !editable && styles.inputDisabled,
+            style,
+          ]}
+          value={value}
+          onChangeText={handleChangeText}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          placeholderTextColor={colors.text.tertiary}
+          editable={editable}
+          {...rest}
+        />
+        {error && value && (
+          <Text style={styles.errorIconInline}>✗</Text>
+        )}
+      </View>
 
       {error && <Text style={styles.errorText}>{error}</Text>}
       {!editable && (
@@ -94,6 +105,17 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xs,
   },
 
+  successIcon: {
+    fontSize: typography.fontSize.base,
+    marginLeft: spacing.xs,
+    color: colors.success.DEFAULT,
+    fontWeight: typography.fontWeight.bold,
+  },
+
+  inputWrapper: {
+    position: 'relative',
+  },
+
   input: {
     height: 48,
     borderWidth: 1.5,
@@ -111,12 +133,27 @@ const styles = StyleSheet.create({
 
   inputError: {
     borderColor: colors.error.DEFAULT,
+    backgroundColor: '#fef2f2',
+  },
+
+  inputSuccess: {
+    borderColor: colors.success.DEFAULT,
+    backgroundColor: '#f0fdf4',
   },
 
   inputDisabled: {
     backgroundColor: colors.gray[100],
     borderColor: colors.border.light,
     color: colors.text.secondary,
+  },
+
+  errorIconInline: {
+    position: 'absolute',
+    right: spacing.base,
+    top: 15,
+    fontSize: typography.fontSize.lg,
+    color: colors.error.DEFAULT,
+    fontWeight: typography.fontWeight.bold,
   },
 
   errorText: {

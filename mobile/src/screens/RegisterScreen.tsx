@@ -51,6 +51,7 @@ export function RegisterScreen() {
   const [cep, setCep] = useState('');
   const [endereco, setEndereco] = useState('');
   const [numero, setNumero] = useState('');
+  const [complemento, setComplemento] = useState('');
   const [bairro, setBairro] = useState('');
   const [cidade, setCidade] = useState('');
 
@@ -60,6 +61,81 @@ export function RegisterScreen() {
 
   const [loading, setLoading] = useState(false);
   const [loadingCep, setLoadingCep] = useState(false);
+
+  // Rastreia quais campos foram tocados (para mostrar erros apenas depois que o usuário editou)
+  const [touched, setTouched] = useState({
+    nome: false,
+    cpf: false,
+    telefone: false,
+    whatsapp: false,
+    email: false,
+    senha: false,
+    confirmarSenha: false,
+    dataNascimento: false,
+  });
+
+  // Marca um campo como tocado
+  const handleBlur = (field: keyof typeof touched) => {
+    setTouched(prev => ({ ...prev, [field]: true }));
+  };
+
+  // Validações individuais
+  const getFieldError = (field: keyof typeof touched): string | undefined => {
+    if (!touched[field]) return undefined;
+
+    switch (field) {
+      case 'nome':
+        return nome.trim() ? undefined : 'Nome é obrigatório';
+      case 'cpf':
+        if (!cpf.trim()) return 'CPF é obrigatório';
+        return isValidCpf(cpf) ? undefined : 'CPF inválido';
+      case 'telefone':
+        if (!telefone.trim()) return 'Telefone é obrigatório';
+        return isValidPhone(telefone) ? undefined : 'Telefone incompleto';
+      case 'whatsapp':
+        if (!whatsapp.trim()) return 'WhatsApp é obrigatório';
+        return isValidPhone(whatsapp) ? undefined : 'WhatsApp incompleto';
+      case 'email':
+        if (!email) return undefined; // Email continua opcional
+        return isValidEmail(email) ? undefined : 'Email inválido';
+      case 'senha':
+        if (!senha.trim()) return 'Senha é obrigatória';
+        return senha.length >= 6 ? undefined : 'Mínimo 6 caracteres';
+      case 'confirmarSenha':
+        if (!confirmarSenha.trim()) return 'Confirme a senha';
+        if (confirmarSenha.length < 6) return 'Mínimo 6 caracteres';
+        return senha === confirmarSenha ? undefined : 'Senhas não coincidem';
+      case 'dataNascimento':
+        if (!dataNascimento) return 'Data de nascimento é obrigatória'; // Agora obrigatório
+        return isValidDate(dataNascimento) ? undefined : 'Data inválida';
+      default:
+        return undefined;
+    }
+  };
+
+  // Verifica se um campo está válido (para mostrar check verde)
+  const isFieldValid = (field: keyof typeof touched): boolean => {
+    switch (field) {
+      case 'nome':
+        return !!nome.trim();
+      case 'cpf':
+        return !!cpf.trim() && isValidCpf(cpf);
+      case 'telefone':
+        return !!telefone.trim() && isValidPhone(telefone);
+      case 'whatsapp':
+        return !!whatsapp.trim() && isValidPhone(whatsapp);
+      case 'email':
+        return !!email && isValidEmail(email); // Só verde se preenchido e válido
+      case 'senha':
+        return senha.length >= 6;
+      case 'confirmarSenha':
+        return confirmarSenha.length >= 6 && senha === confirmarSenha;
+      case 'dataNascimento':
+        return !!dataNascimento && isValidDate(dataNascimento); // Obrigatório agora
+      default:
+        return false;
+    }
+  };
 
   // Verifica se todos os campos obrigatórios estão preenchidos e válidos
   const isFormValid = () => {
@@ -75,7 +151,8 @@ export function RegisterScreen() {
       confirmarSenha.trim().length >= 6 &&
       senha === confirmarSenha &&
       (!email || isValidEmail(email)) && // Email é opcional, mas se preenchido deve ser válido
-      (!dataNascimento || isValidDate(dataNascimento)) // Data é opcional, mas se preenchida deve ser válida
+      dataNascimento.trim().length > 0 && // Data agora é obrigatória
+      isValidDate(dataNascimento)
     );
   };
 
@@ -244,6 +321,7 @@ export function RegisterScreen() {
         cep: cep ? removeCepMask(cep) : null,
         endereco: endereco || null,
         numero: numero || null,
+        complemento: complemento || null,
         bairro: bairro || null,
         cidade: cidade || null,
         nomeEmergencia1: nomeEmergencia1 || null,
@@ -310,57 +388,75 @@ export function RegisterScreen() {
             label="Nome Completo *"
             value={nome}
             onChangeText={setNome}
+            onBlur={() => handleBlur('nome')}
             placeholder="Seu nome completo"
             autoCapitalize="words"
+            error={getFieldError('nome')}
+            success={isFieldValid('nome')}
           />
 
           <Input
             label="CPF *"
             value={cpf}
             onChangeText={setCpf}
+            onBlur={() => handleBlur('cpf')}
             mask={cpfMask}
             placeholder="000.000.000-00"
             keyboardType="numeric"
             maxLength={14}
+            error={getFieldError('cpf')}
+            success={isFieldValid('cpf')}
           />
 
           <Input
             label="Telefone *"
             value={telefone}
             onChangeText={setTelefone}
+            onBlur={() => handleBlur('telefone')}
             mask={phoneMask}
             placeholder="(00) 00000-0000"
             keyboardType="phone-pad"
             maxLength={15}
+            error={getFieldError('telefone')}
+            success={isFieldValid('telefone')}
           />
 
           <Input
             label="WhatsApp * 📱"
             value={whatsapp}
             onChangeText={setWhatsapp}
+            onBlur={() => handleBlur('whatsapp')}
             mask={phoneMask}
             placeholder="(00) 00000-0000"
             keyboardType="phone-pad"
             maxLength={15}
+            error={getFieldError('whatsapp')}
+            success={isFieldValid('whatsapp')}
           />
 
           <Input
             label="Email (opcional)"
             value={email}
             onChangeText={setEmail}
+            onBlur={() => handleBlur('email')}
             placeholder="seu@email.com"
             keyboardType="email-address"
             autoCapitalize="none"
+            error={getFieldError('email')}
+            success={isFieldValid('email')}
           />
 
           <Input
-            label="Data de Nascimento"
+            label="Data de Nascimento *"
             value={dataNascimento}
             onChangeText={setDataNascimento}
+            onBlur={() => handleBlur('dataNascimento')}
             mask={dateMask}
             placeholder="DD/MM/AAAA"
             keyboardType="numeric"
             maxLength={10}
+            error={getFieldError('dataNascimento')}
+            success={isFieldValid('dataNascimento')}
           />
         </Card>
 
@@ -374,18 +470,24 @@ export function RegisterScreen() {
             label="Senha *"
             value={senha}
             onChangeText={setSenha}
+            onBlur={() => handleBlur('senha')}
             placeholder="Mínimo 6 caracteres"
             secureTextEntry
             autoCapitalize="none"
+            error={getFieldError('senha')}
+            success={isFieldValid('senha')}
           />
 
           <Input
             label="Confirmar Senha *"
             value={confirmarSenha}
             onChangeText={setConfirmarSenha}
+            onBlur={() => handleBlur('confirmarSenha')}
             placeholder="Digite a senha novamente"
             secureTextEntry
             autoCapitalize="none"
+            error={getFieldError('confirmarSenha')}
+            success={isFieldValid('confirmarSenha')}
           />
 
           <Text variant="caption" color={colors.text.tertiary} style={styles.passwordHint}>
@@ -443,13 +545,20 @@ export function RegisterScreen() {
             />
 
             <Input
-              label="Bairro"
-              value={bairro}
-              onChangeText={setBairro}
-              placeholder="Bairro"
+              label="Complemento"
+              value={complemento}
+              onChangeText={setComplemento}
+              placeholder="Apto, Sala, Bloco"
               containerStyle={styles.halfInput}
             />
           </View>
+
+          <Input
+            label="Bairro"
+            value={bairro}
+            onChangeText={setBairro}
+            placeholder="Bairro"
+          />
         </Card>
 
         {/* Contato de Emergência */}

@@ -28,6 +28,7 @@ export default function EditClientePage() {
   const [cep, setCep] = useState("");
   const [endereco, setEndereco] = useState("");
   const [numero, setNumero] = useState("");
+  const [complemento, setComplemento] = useState("");
   const [bairro, setBairro] = useState("");
   const [cidade, setCidade] = useState("");
 
@@ -97,6 +98,7 @@ export default function EditClientePage() {
         setCep(cepMask(data.cep || ""));
         setEndereco(data.endereco || "");
         setNumero(data.numero || "");
+        setComplemento(data.complemento || "");
         setBairro(data.bairro || "");
         setCidade(data.cidade || "");
         setNomeEmergencia1(data.nomeEmergencia1 || "");
@@ -132,6 +134,7 @@ export default function EditClientePage() {
       cep: removeCepMask(cep) || null,
       endereco: endereco || null,
       numero: numero || null,
+      complemento: complemento || null,
       bairro: bairro || null,
       cidade: cidade || null,
       nomeEmergencia1: nomeEmergencia1 || null,
@@ -302,14 +305,24 @@ export default function EditClientePage() {
                 />
               </div>
               <div>
-                <Label htmlFor="bairro">Bairro</Label>
+                <Label htmlFor="complemento">Complemento</Label>
                 <Input
-                  id="bairro"
-                  value={bairro}
-                  onChange={(e) => setBairro(e.target.value)}
-                  placeholder="Bairro"
+                  id="complemento"
+                  value={complemento}
+                  onChange={(e) => setComplemento(e.target.value)}
+                  placeholder="Apto, Sala, Bloco"
                 />
               </div>
+            </div>
+
+            <div>
+              <Label htmlFor="bairro">Bairro</Label>
+              <Input
+                id="bairro"
+                value={bairro}
+                onChange={(e) => setBairro(e.target.value)}
+                placeholder="Bairro"
+              />
             </div>
           </CardContent>
         </Card>

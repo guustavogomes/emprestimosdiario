@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/permissionMiddleware";
 import { logCreate, logRead } from "@/lib/auditLog";
 import { prisma } from "@/lib/prisma";
+import bcrypt from "bcrypt";
 
 /**
  * GET /api/clientes - Listar todos os clientes
@@ -119,7 +120,6 @@ export async function POST(request: NextRequest) {
 
     if (isAutoRegister) {
       // Auto-cadastro: Cria cliente + usuário em uma transação
-      const bcrypt = require("bcryptjs");
       const senhaHash = await bcrypt.hash(body.senha, 10);
 
       const result = await prisma.$transaction(async (tx) => {
@@ -135,6 +135,7 @@ export async function POST(request: NextRequest) {
             cep: body.cep,
             endereco: body.endereco,
             numero: body.numero,
+            complemento: body.complemento,
             bairro: body.bairro,
             cidade: body.cidade,
             chavePix: body.chavePix,

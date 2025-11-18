@@ -86,7 +86,7 @@ export default function EditPerfilPage() {
 
     setSaving(true);
 
-    const url = isNew ? "/api/profiles" : `/api/profiles/${(await params).id}`;
+    const url = isNew ? "/api/profiles" : `/api/profiles/${params.id}`;
     const method = isNew ? "POST" : "PUT";
 
     const savePromise = fetch(url, {
